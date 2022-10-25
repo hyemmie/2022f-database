@@ -6,110 +6,29 @@ from transformer import *
 
 PROMPT_NAME = 'DB_2017-19651> '
 ERROR_STRING = 'Syntax error'
-    
-# def create_table(table_name):
-#   b_db = db.DB()
-#   b_db.open('./db/{}.db'.format(table_name), dbtype=db.DB_HASH, flags=db.DB_CREATE)
-#   b_db.put(b'apple', b"red")
-#   print(b_db.get(b"apple"))
-#   b_db.close()
-
-
-# # TODO: drop reference error
-# def drop_table(table_name):
-#   db_path = "./db/{}.db".format(table_name)
-#   try:
-#     os.remove(db_path)
-#     print(Message.DropSuccess(table_name))
-#   except:
-#       print(Message.NoSuchTable)
-
-
-# def desc_table(table_name):
-#   print("-------------------------------------------------")
-#   print("table_name [{}]".format(table_name))
-#   print("column_name        type      null      key")
-#   # for 
-#   print("-------------------------------------------------")
-
-
-# def show_tables():
-#   print('----------------')
-#   path = "./db/"
-#   file_list = os.listdir(path)
-#   table_list = [file for file in file_list if file.endswith(".db")]
-#   for table in table_list:
-#     print(table.split(".")[0])
-#   print('----------------')
-
-# myDB = db.DB()
-# myDB.open('./db/myDB3.db', dbtype=db.DB_HASH, flags=db.DB_CREATE)
-# myDB.put(b'apple', b"red")
-# print(None == myDB.get(b"red"))
-# myDB.close()
-# create_table("test")
-# show_tables()
-#drop_table("myDB")
-# table_name = "desc"
-# b_db = db.DB()
-# b_db.open('./db/{}.db'.format(table_name), dbtype=db.DB_HASH, flags=db.DB_CREATE)
-# b_db.put(b"column_num", b"4")
-
-# b_db.put(b"column_1_name", b"account")
-# b_db.put(b"column_1_type", b"int")
-# b_db.put(b"column_1_nullable", b"N")
-# b_db.put(b"column_1_is_primary_key", b"PRI")
-# b_db.put(b"column_1_reference_table", b"another")
-
-# b_db.put(b"column_2_name", b"branch")
-# b_db.put(b"column_2_type", b"char(15)")
-# b_db.put(b"column_2_nullable", b"Y")
-
-# b_db.put(b"column_3_name", b"id")
-# b_db.put(b"column_3_type", b"int")
-# b_db.put(b"column_3_nullable", b"N")
-# b_db.put(b"column_3_reference_table", b"other")
-
-# b_db.put(b"column_4_name", b"detail")
-# b_db.put(b"column_4_type", b"char(15)")
-# b_db.put(b"column_4_nullable", b"N")
-# b_db.put(b"column_4_is_primary_key", b"PRI")
-# b_db.close()
-
-# QueryTransformer.drop_table_query()
-
-# table_name = "account"
-# b_db = db.DB()
-# b_db.open('./db/{}.db'.format(table_name), dbtype=db.DB_HASH, flags=db.DB_CREATE)
-# cursor = b_db.cursor()
-# while x := cursor.next():
-#   print(x)
 
 # printing method
 def parse_result(query, result): 
   # remove blank after semicolon
   query = query.lstrip()
-  if query[:12] == 'create table':
+  if query[:12].lower() == 'create table':
     QueryTransformer().transform(result)
-    # print(PROMPT_NAME + "'CREATE TABLE' requested")
-  elif query[:10] == 'drop table':
+  elif query[:10].lower() == 'drop table':
     QueryTransformer().transform(result)
-#    print(PROMPT_NAME + "'DROP TABLE' requested")
-  elif query[:4] == 'desc':
+  elif query[:4].lower() == 'desc':
+    print(result)
     QueryTransformer().transform(result)
-  #  print(PROMPT_NAME + "'DESC' requested")
-  elif query[:6] == 'insert':
+  elif query[:6].lower() == 'insert':
     print(PROMPT_NAME + "'INSERT' requested")
-  elif query[:6] == 'delete':
+  elif query[:6].lower() == 'delete':
     print(PROMPT_NAME + "'DELETE' requested")
-  elif query[:6] == 'select':
+  elif query[:6].lower() == 'select':
     print(PROMPT_NAME + "'SELECT' requested")
-  elif query[:4]== 'show':
-#    print(PROMPT_NAME + "'SHOW TABLES' requested")
+  elif query[:4].lower() == 'show':
     QueryTransformer().transform(result)
-  elif query[:6] == 'update':
+  elif query[:6].lower() == 'update':
     print(PROMPT_NAME + "'UPDATE' requested")
-  elif query[:4] == 'exit':
+  elif query[:4].lower() == 'exit':
     raise SystemExit
 
 while True:
@@ -131,8 +50,7 @@ while True:
         parse_result(query_with_semicolon, result)
       except SystemExit:
         sys.exit(0)
-      except(error):
-        print(error) 
+      except:
         print(PROMPT_NAME + ERROR_STRING)
         break;
 
@@ -158,8 +76,7 @@ while True:
         parse_result(query_with_semicolon, result)
       except SystemExit:
         sys.exit(0)
-      except(error):
-        print(error)
+      except:
         print(PROMPT_NAME + ERROR_STRING)
         break;
       
