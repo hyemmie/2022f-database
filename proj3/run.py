@@ -16,10 +16,9 @@ def parse_result(query, result):
   elif query[:10].lower() == 'drop table':
     QueryTransformer().transform(result)
   elif query[:4].lower() == 'desc':
-    print(result)
     QueryTransformer().transform(result)
   elif query[:6].lower() == 'insert':
-    print(PROMPT_NAME + "'INSERT' requested")
+    QueryTransformer().transform(result)
   elif query[:6].lower() == 'delete':
     print(PROMPT_NAME + "'DELETE' requested")
   elif query[:6].lower() == 'select':
@@ -50,8 +49,9 @@ while True:
         parse_result(query_with_semicolon, result)
       except SystemExit:
         sys.exit(0)
-      except:
-        print(PROMPT_NAME + ERROR_STRING)
+      except error:
+        print(error)
+        # print(PROMPT_NAME + ERROR_STRING)
         break;
 
   # CASE 2: query didn't finish with semicolon in one line
@@ -76,7 +76,8 @@ while True:
         parse_result(query_with_semicolon, result)
       except SystemExit:
         sys.exit(0)
-      except:
-        print(PROMPT_NAME + ERROR_STRING)
+      except error:
+        print(error)
+        # print(PROMPT_NAME + ERROR_STRING)
         break;
       

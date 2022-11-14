@@ -59,7 +59,6 @@ class QueryTransformer(Transformer):
     b_db.close()
     print(PROMPT_NAME + Message.CreateTableSuccess(table_name))
   
-  
   def create_column_definition(self, tree, table_name):
     self.query_cols += 1
     # check DuplicateColumnDefError
@@ -92,7 +91,6 @@ class QueryTransformer(Transformer):
     b_db.close()
     self.column_names.append(column_name.lower())
     return 1
-
 
   def create_table_constraint_definition(self, tree, table_name):
     # FOREIGN KEY CREATION
@@ -318,3 +316,284 @@ class QueryTransformer(Transformer):
     for table in table_list:
       print(table.split(".")[0])
     print('----------------')
+
+  def insert_query(self, item):
+    # print(item)
+    table_name = item[2].children[0].value
+    # print(table_name)
+    # check table existence
+    b_db = db.DB()
+    try:
+      b_db.open('./db/{}.db'.format(table_name.lower()), dbtype=db.DB_HASH)
+    except:
+      b_db.close()
+      return print(Message.NoSuchTable.value)
+    
+    column_list = item[3]
+    value_list = item[5].children
+    if value_list[0].value == "(":
+      value_list.pop(0)
+    if value_list[-1].value == ")":
+      value_list.pop(-1)
+
+    num_cols = int(b_db.get(b"column_num").decode('utf-8'))
+    num_rows_byte = b_db.get(b"row_num")
+    num_rows = 0
+    if num_rows_byte != None:
+      num_rows = int(num_rows_byte.decode('utf-8'))
+    b_db.close()
+
+    # check attribute number
+    if num_cols != len(value_list):
+      return print(Message.InsertTypeMismatchError.value)
+
+    save_value_list = []
+   
+    if column_list is None:
+      i = 0
+      for value in value_list:
+        i += 1
+        value_value = value
+        value_type = value
+        if value.children[0] == "null":
+          value_value = value.children[0].value
+          value_type = value.children[0].type
+        else:
+          value_value = value.children[0].children[0].value
+          value_type = value.children[0].children[0].type
+        
+        b_db = db.DB()
+        b_db.open('./db/{}.db'.format(table_name.lower()), dbtype=db.DB_HASH)
+        column_name = b_db.get(bytes("column_{}_name".format(i), 'utf-8')).decode('utf-8')
+        column_type = b_db.get(bytes("column_{}_type".format(i), 'utf-8')).decode('utf-8')
+        column_nullable = b_db.get(bytes("column_{}_is_nullable".format(i), 'utf-8')).decode('utf-8')
+      
+        column_is_primary_key = b_db.get(bytes("column_{}_is_primary_key".format(i), 'utf-8'))
+        column_reference_table = b_db.get(bytes("column_{}_reference_table".format(i), 'utf-8'))
+        column_reference_column = b_db.get(bytes("column_{}_reference_table".format(i), 'utf-8'))
+
+        b_db.close()
+
+        if column_nullable == "N" and value_value == "null":
+          return print(Message.InsertColumnNonNullableError(column_name))
+      
+        if column_type == "int" and value_type != "INT":
+          return print(Message.InsertTypeMismatchError.value)
+
+        if "char" in column_type and value_type != "STR":
+          return print(Message.InsertTypeMismatchError.value)
+
+        if column_type == "date" and value_type != "DATE":
+          return print(Message.InsertTypeMismatchError.value)
+
+        if value_type == "STR":
+          value_value = value_value[1:-1]
+
+        if "char" in column_type:
+          max_index = int(column_type.split("(")[1].split(")")[0])
+          if len(value_value) > max_index:
+            value_value = value_value[:max_index]
+        save_value_list.append(value_value)
+        
+        # if this value is primary key
+        if column_is_primary_key != None and column_is_primary_key.decode('utf-8') == "Y":
+          duplicated = False
+          b_db = db.DB()
+          b_db.open('./db/{}.db'.format(table_name.lower()), dbtype=db.DB_HASH)
+          for j in range(1, num_rows + 1):
+            row_value = b_db.get(bytes("row_{}_col_{}".format(j, i), 'utf-8')).decode('utf-8')
+            if row_value == value_value:
+              duplicated = True
+          b_db.close()
+          if duplicated:
+            return print(Message.InsertDuplicatePrimaryKeyError.value)
+
+        # if this value is foreign key
+        if column_reference_table != None and column_reference_column != None:
+          column_reference_table = column_reference_table.decode('utf-8')
+          column_reference_column = column_reference_column.decode('utf-8')
+          f_db = db.DB()
+          try:
+            f_db.open('./db/{}.db'.format(column_reference_table.lower()), dbtype=db.DB_HASH)
+          except:
+            f_db.close()
+            return print(Message.InsertReferentialIntegrityError.value)
+          
+          fr_num_cols = int(f_db.get(b"column_num").decode('utf-8'))
+          fr_num_rows_byte = f_db.get(b"row_num")
+          f_db.close()
+
+          # no rows in reference table -> error
+          fr_num_rows = 0
+          if nul_rows_byte == None:
+            return print(Message.InsertReferentialIntegrityError.value)
+          else:
+            fr_num_rows = int(num_rows_byte.decode('utf-8'))
+            f_db = db.DB()
+            f_db.open('./db/{}.db'.format(column_reference_table.lower()), dbtype=db.DB_HASH)
+            ref_col_index = 0
+            for j in range(1, fr_num_cols + 1):
+              ref_col_name = f_db.get(bytes("column_{}_name".format(j), 'utf-8')).decode('utf-8')
+              if ref_col_name == column_reference_column:
+                ref_col_index = j
+            f_db.close()
+
+            # no table named column_reference_column
+            if ref_col_index == 0:
+              return print(Message.InsertReferentialIntegrityError.value)
+            else:
+            # found related record from foreign table
+              f_db = db.DB()
+              f_db.open('./db/{}.db'.format(column_reference_table.lower()), dbtype=db.DB_HASH)
+              found_record = False
+              for j in range(1, fr_num_rows + 1):
+                ref_row_of_col = f_db.get(bytes("row_{}_col_{}".format(j, ref_col_index), 'utf-8')).decode('utf-8')
+                if ref_row_of_col == value_value:
+                  found_record = True
+              f_db.close()
+              if found_record == False:
+                return print(Message.InsertReferentialIntegrityError.value)
+  
+    else:
+      column_list = column_list.children
+      if column_list[0].value == "(":
+        column_list.pop(0)
+      if column_list[-1].value == ")":
+        column_list.pop(-1)
+
+      if len(column_list) != len(value_list):
+          return print(Message.InsertTypeMismatchError.value)
+
+      i = 0
+      for column_info in column_list:
+        value_value = value_list[i]
+        value_type = value_list[i]
+        if value_list[i].children[0] == "null":
+          value_value = value_list[i].children[0].value
+          value_type = value_list[i].children[0].type
+        else:
+          value_value = value_list[i].children[0].children[0].value
+          value_type = value_list[i].children[0].children[0].type
+        column_name = column_info.children[0].value
+        i += 1
+
+        # check column existence and get column index
+        b_db = db.DB()
+        b_db.open('./db/{}.db'.format(table_name.lower()), dbtype=db.DB_HASH)
+        col_index = 0
+        for j in range(1, num_cols + 1):
+          saved_col_name = b_db.get(bytes("column_{}_name".format(j), 'utf-8')).decode('utf-8')
+          if saved_col_name == column_name:
+            col_index = j
+        b_db.close()
+        if col_index == 0:
+          return print(Message.InsertColumnExistenceError(column_name))
+      
+        # get column info for type check
+        b_db = db.DB()
+        b_db.open('./db/{}.db'.format(table_name.lower()), dbtype=db.DB_HASH)
+        column_name = b_db.get(bytes("column_{}_name".format(col_index), 'utf-8')).decode('utf-8')
+        column_type = b_db.get(bytes("column_{}_type".format(col_index), 'utf-8')).decode('utf-8')
+        column_nullable = b_db.get(bytes("column_{}_is_nullable".format(col_index), 'utf-8')).decode('utf-8')
+      
+        column_is_primary_key = b_db.get(bytes("column_{}_is_primary_key".format(col_index), 'utf-8'))
+        column_reference_table = b_db.get(bytes("column_{}_reference_table".format(col_index), 'utf-8'))
+        column_reference_column = b_db.get(bytes("column_{}_reference_table".format(col_index), 'utf-8'))
+        b_db.close()
+
+        if column_nullable == "N" and value_value == "null":
+          return print(Message.InsertColumnNonNullableError(column_name))
+      
+        if column_type == "int" and value_type != "INT":
+          return print(Message.InsertTypeMismatchError.value)
+
+        if "char" in column_type and value_type != "STR":
+          return print(Message.InsertTypeMismatchError.value)
+
+        if column_type == "date" and value_type != "DATE":
+          return print(Message.InsertTypeMismatchError.value)
+
+        if value_type == "STR":
+          value_value = value_value[1:-1]
+
+        if "char" in column_type:
+          max_index = int(column_type.split("(")[1].split(")")[0])
+          if len(value_value) > max_index:
+            value_value = value_value[:max_index]
+        save_value_list.append(value_value)
+        
+        # if this value is primary key
+        if column_is_primary_key != None and column_is_primary_key.decode('utf-8') == "Y":
+          duplicated = False
+          b_db = db.DB()
+          b_db.open('./db/{}.db'.format(table_name.lower()), dbtype=db.DB_HASH)
+          for j in range(1, num_rows + 1):
+            row_value = b_db.get(bytes("row_{}_col_{}".format(j, col_index), 'utf-8')).decode('utf-8')
+            if row_value == value_value:
+              duplicated = True
+          b_db.close()
+          if duplicated:
+            return print(Message.InsertDuplicatePrimaryKeyError.value)
+
+        # if this value is foreign key
+        if column_reference_table != None and column_reference_column != None:
+          column_reference_table = column_reference_table.decode('utf-8')
+          column_reference_column = column_reference_column.decode('utf-8')
+          f_db = db.DB()
+          try:
+            f_db.open('./db/{}.db'.format(column_reference_table.lower()), dbtype=db.DB_HASH)
+          except:
+            f_db.close()
+            return print(Message.InsertReferentialIntegrityError.value)
+          
+          fr_num_cols = int(f_db.get(b"column_num").decode('utf-8'))
+          fr_num_rows_byte = f_db.get(b"row_num")
+          f_db.close()
+
+          # no rows in reference table -> error
+          fr_num_rows = 0
+          if nul_rows_byte == None:
+            return print(Message.InsertReferentialIntegrityError.value)
+          else:
+            fr_num_rows = int(num_rows_byte.decode('utf-8'))
+            f_db = db.DB()
+            f_db.open('./db/{}.db'.format(column_reference_table.lower()), dbtype=db.DB_HASH)
+            ref_col_index = 0
+            for j in range(1, fr_num_cols+1):
+              ref_col_name = f_db.get(bytes("column_{}_name".format(j), 'utf-8')).decode('utf-8')
+              if ref_col_name == column_reference_column:
+                ref_col_index = j
+            f_db.close()
+
+            # no table named column_reference_column
+            if ref_col_index == 0:
+              return print(Message.InsertReferentialIntegrityError.value)
+            else:
+            # found related record from foreign table
+              f_db = db.DB()
+              f_db.open('./db/{}.db'.format(column_reference_table.lower()), dbtype=db.DB_HASH)
+              found_record = False
+              for j in range(1, fr_num_rows + 1):
+                ref_row_of_col = f_db.get(bytes("row_{}_col_{}".format(j, ref_col_index), 'utf-8')).decode('utf-8')
+                if ref_row_of_col == value_value:
+                  found_record = True
+              f_db.close()
+              if found_record == False:
+                return print(Message.InsertReferentialIntegrityError.value)
+
+    # after check all value, save all
+    b_db = db.DB()
+    b_db.open('./db/{}.db'.format(table_name.lower()), dbtype=db.DB_HASH)
+    b_db.put(bytes("row_num", 'utf-8'), bytes("{}".format(num_rows + 1), 'utf-8'))
+    index = 0
+    for saving_value in save_value_list:
+      index += 1
+      b_db.put(bytes("row_{}_col_{}".format(num_rows + 1, index), 'utf-8'), bytes(saving_value, 'utf-8'))
+    b_db.close()
+    print(Message.InsertResult.value)
+  
+  # def delete_query(self, item):
+
+  # def select_query(self, item):
+
+  # def update_query(self, item):
