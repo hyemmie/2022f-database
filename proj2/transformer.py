@@ -6,7 +6,6 @@ from berkeleydb import db
 
 PROMPT_NAME = 'DB_2017-19651> '
 ERROR_STRING = 'Syntax error'
-
 class QueryTransformer(Transformer):
 
   def __init__(self): 
