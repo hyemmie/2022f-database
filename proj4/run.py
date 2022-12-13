@@ -21,7 +21,6 @@ def connect_db():
 
 # Problem 1 (5 pt.)
 def reset():
-    # YOUR CODE GOES HERE
     drop_table(TABLE_RATE)
     drop_table(TABLE_BOOK)
     drop_table(TABLE_AUDIENCE)
@@ -33,8 +32,6 @@ def reset():
 
     initialize()
     print('Initialized database')
-    # YOUR CODE GOES HERE
-    pass
 
 def drop_table(table_name):
     with connection.cursor() as cursor:
@@ -136,45 +133,46 @@ def print_line(data, lengthList):
     
 def print_align(column_list, records):
     col_num = len(column_list)
-    maxLen = [0] * col_num
+    max_len = [0] * col_num
     
-    for i in range(0, colNum):
-        maxLen[i] = len(titleList[i])
+    for i in range(0, col_num):
+        max_len[i] = len(column_list[i])
 
     for rec in records:
-        for i in range(0, colNum):
-            maxLen[i] = max(maxLen[i], len(str(rec[i])))
+        for i in range(0, col_num):
+            max_len[i] = max(max_len[i], len(str(rec[i])))
     
     print("-------------------------------------------------------------------------------------------------------------------------")
-    print_line(titleList, maxLen)
+    print_line(column_list, max_len)
     print("-------------------------------------------------------------------------------------------------------------------------")
     
     for i in records:
-        print_line(i, maxLen)
+        print_line(i, max_len)
 
 # Problem 2 (3 pt.)
 def print_movies():
     # YOUR CODE GOES HERE
     with connection.cursor() as cursor:
         sql= f"""SELECT m_id, title, director, price, COUNT(b_id), AVG(score)
-                FROM {TABLE_MOVIE} NATURAL LEFT OUTER JOIN ({TABLE_BOOK} NATURAL JOIN {TABLE_RATE})
+                FROM {TABLE_MOVIE} NATURAL LEFT OUTER JOIN ({TABLE_BOOK} NATURAL LEFT OUTER JOIN {TABLE_RATE})
                 GROUP BY m_id
                 ORDER BY m_id"""
         cursor.execute(sql)
         result = cursor.fetchall()
-    titleList = ('id', 'title', 'director', 'price', 'book count', 'average rate')
-    print_align(titleList, result)
-    
-    # YOUR CODE GOES HERE
-    pass
+    title_list = ('id', 'title', 'director', 'price', 'book count', 'average rate')
+    print_align(title_list, result)
 
 # Problem 3 (3 pt.)
 def print_audiences():
     # YOUR CODE GOES HERE
-
-    
-    # YOUR CODE GOES HERE
-    pass
+    with connection.cursor() as cursor:
+        sql= f"""SELECT a_id, name, gender, age
+                FROM {TABLE_AUDIENCE}
+                ORDER BY a_id"""
+        cursor.execute(sql)
+        result = cursor.fetchall()
+    title_list = ('id', 'name', 'gender', 'age')
+    print_align(title_list, result)
 
 # Problem 4 (3 pt.)
 def insert_movie():
@@ -182,26 +180,31 @@ def insert_movie():
     title = input('Movie title: ')
     director = input('Movie director: ')
     price = input('Movie price: ')
-    
 
-    # success message
-    print('A movie is successfully inserted')
-    # YOUR CODE GOES HERE
-    pass
+    if int(price) >= 0:
+        insert_movie_inner(title, director, price)
+        # success message
+        print('A movie is successfully inserted')
+    else:
+        print('Movie price cannot be negative')
 
 # Problem 6 (4 pt.)
 def remove_movie():
     # YOUR CODE GOES HERE
     movie_id = input('Movie ID: ')
 
+    with connection.cursor() as cursor:
+        sql= f"""DELETE FROM {TABLE_MOVIE}
+                WHERE m_id=%s"""
+        result = cursor.execute(sql, movie_id)
+    connection.commit()
 
-    # error message
-    print(f'Movie {movie_id} does not exist')
-
-    # success message
-    print('A movie is successfully removed')
-    # YOUR CODE GOES HERE
-    pass
+    if result == 0: 
+            # error message
+        print(f'Movie {movie_id} does not exist')
+    else:
+        # success message
+        print('A movie is successfully removed')
 
 # Problem 5 (3 pt.)
 def insert_audience():
@@ -209,26 +212,30 @@ def insert_audience():
     name = input('Audience name: ')
     gender = input('Audience gender: ')
     age = input('Audience age: ')
-    
 
-    # success message
-    print('An audience is successfully inserted')
-    # YOUR CODE GOES HERE
-    pass
+    if gender == MALE or gender == FEMALE:
+        insert_audience_inner(name, gender, age)
+        print('An audience is successfully inserted')
+    else:
+        print("Audience gender should be 'male' or 'female'")
 
 # Problem 7 (4 pt.)
 def remove_audience():
     # YOUR CODE GOES HERE
     audience_id = input('Audience ID: ')
 
+    with connection.cursor() as cursor:
+        sql= f"""DELETE FROM {TABLE_AUDIENCE}
+                WHERE a_id=%s"""
+        result = cursor.execute(sql, audience_id)
+    connection.commit()
 
-    # error message
-    print(f'Audience {audience_id} does not exist')
-
-    # success message
-    print('An audience is successfully removed')
-    # YOUR CODE GOES HERE
-    pass
+    if result == 0:
+        # error message
+        print(f'Audience {audience_id} does not exist')
+    else:
+        # success message
+        print('An audience is successfully removed')
 
 # Problem 8 (5 pt.)
 def book_movie():
@@ -236,16 +243,42 @@ def book_movie():
     movie_id = input('Movie ID: ')
     audience_id = input('Audience ID: ')
 
+    with connection.cursor() as cursor:
+        # check movie id
+        sql= f"""SELECT m_id
+                FROM {TABLE_MOVIE}
+                WHERE m_id=%s"""
+        cursor.execute(sql, movie_id)
+        mid_result = cursor.fetchall()
 
-    # error message
-    print(f'Movie {movie_id} does not exist')
-    print(f'Audience {audience_id} does not exist')
-    print('One audience cannot book the same movie twice')
+        # check audience id
+        sql= f"""SELECT a_id
+                FROM {TABLE_AUDIENCE}
+                WHERE a_id=%s"""
+        cursor.execute(sql, audience_id)
+        aid_result = cursor.fetchall()
 
-    # success message
-    print('Successfully booked a movie')
-    # YOUR CODE GOES HERE
-    pass
+        # check if already booked
+        sql= f"""SELECT b_id
+                FROM {TABLE_BOOK}
+                WHERE m_id=%s AND a_id=%s"""
+        cursor.execute(sql, (movie_id, audience_id))
+        duplicate_result = cursor.fetchall()
+
+
+        if len(mid_result) < 1:
+            print(f'Movie {movie_id} does not exist')
+        elif len(aid_result) < 1:
+            print(f'Audience {audience_id} does not exist')
+        elif len(duplicate_result) >= 1:
+            print('One audience cannot book the same movie twice')
+        else:
+            sql= f"""INSERT INTO {TABLE_BOOK}
+                    (`m_id`, `a_id`)
+                    VALUES (%s, %s)"""
+            cursor.execute(sql, (movie_id, audience_id))
+            connection.commit()  
+            print('Successfully booked a movie')
 
 # Problem 9 (5 pt.)
 def rate_movie():
@@ -254,40 +287,102 @@ def rate_movie():
     audience_id = input('Audience ID: ')
     rating = input('Ratings (1~5): ')
 
+    with connection.cursor() as cursor:
+        # check movie id
+        sql= f"""SELECT m_id
+                FROM {TABLE_MOVIE}
+                WHERE m_id=%s"""
+        cursor.execute(sql, movie_id)
+        mid_result = cursor.fetchall()
 
-    # error message
-    print(f'Movie {movie_id} does not exist')
-    print(f'Audience {audience_id} does not exist')
-    print(f'Wrong value for a rating')
+        # check audience id
+        sql= f"""SELECT a_id
+                FROM {TABLE_AUDIENCE}
+                WHERE a_id=%s"""
+        cursor.execute(sql, audience_id)
+        aid_result = cursor.fetchall()
 
-    # success message
-    print('Successfully rated a movie')
-    # YOUR CODE GOES HERE
-    pass
+        # check if already booked
+        sql= f"""SELECT b_id
+                FROM {TABLE_BOOK}
+                WHERE m_id=%s AND a_id=%s"""
+        cursor.execute(sql, (movie_id, audience_id))
+        bid_result = cursor.fetchall()
+
+        if 1 > int(rating) or int(rating) > 5:
+             print(f'Wrong value for a rating')
+        elif len(mid_result) < 1:
+            print(f'Movie {movie_id} does not exist')
+        elif len(aid_result) < 1:
+            print(f'Audience {audience_id} does not exist')
+        elif len(bid_result) < 1:
+            print('Audience cannot rate movie without booking')
+        else:
+            # check if already rated
+            sql= f"""SELECT r_id
+                    FROM {TABLE_RATE}
+                    WHERE b_id=%s"""
+            cursor.execute(sql, bid_result[0])
+            rid_result = cursor.fetchall()
+            if len(rid_result) >= 1:
+                print('One audience cannot rate the same movie twice')
+            else:
+                sql= f"""INSERT INTO {TABLE_RATE}
+                        (`b_id`, `score`)
+                        VALUES (%s, %s)"""
+                cursor.execute(sql, (bid_result[0], rating))
+                connection.commit()  
+                print('Successfully rated a movie')    
 
 # Problem 10 (5 pt.)
 def print_audiences_for_movie():
     # YOUR CODE GOES HERE
-    audience_id = input('Audience ID: ')
+    movie_id = input('Movie ID: ')
 
-    
-    # error message
-    print(f'Audience {audience_id} does not exist')
-    # YOUR CODE GOES HERE
-    pass
+    with connection.cursor() as cursor:
+        # check movie id
+        sql= f"""SELECT m_id
+                FROM {TABLE_MOVIE}
+                WHERE m_id=%s"""
+        cursor.execute(sql, movie_id)
+        mid_result = cursor.fetchall()
 
+        if len(mid_result) < 1:
+            # error message
+            print(f'Movie {movie_id} does not exist')
+        else:
+            sql= f"""SELECT DISTINCT a_id, name, gender, age, score
+                    FROM {TABLE_AUDIENCE} NATURAL JOIN ({TABLE_BOOK} NATURAL LEFT OUTER JOIN {TABLE_RATE})
+                    WHERE m_id=%s"""
+            cursor.execute(sql, movie_id)
+            result = cursor.fetchall()
+            title_list = ('id', 'name', 'gender', 'age', 'rate')
+            print_align(title_list, result)
 
 # Problem 11 (5 pt.)
 def print_movies_for_audience():
     # YOUR CODE GOES HERE
     audience_id = input('Audience ID: ')
 
+    with connection.cursor() as cursor:
+        # check movie id
+        sql= f"""SELECT a_id
+                FROM {TABLE_AUDIENCE}
+                WHERE a_id=%s"""
+        cursor.execute(sql, audience_id)
+        aid_result = cursor.fetchall()
 
-    # error message
-    print(f'Audience {audience_id} does not exist')
-    # YOUR CODE GOES HERE
-    pass
-
+        if len(aid_result) < 1:
+             # error message
+            print(f'Audience {audience_id} does not exist')
+        else:
+            sql= f"""SELECT DISTINCT m_id, title, director, price, score
+                    FROM {TABLE_MOVIE} NATURAL JOIN ({TABLE_BOOK} NATURAL LEFT OUTER JOIN {TABLE_RATE})
+                    WHERE a_id=%s"""
+            cursor.execute(sql, audience_id)
+            result = cursor.fetchall()
+            title_list = ('id', 'title', 'director', 'price', 'rate')
+            print_align(title_list, result)
 
 # Problem 12 (10 pt.)
 def recommend():
