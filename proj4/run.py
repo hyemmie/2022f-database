@@ -22,6 +22,13 @@ def connect_db():
 
 # Problem 1 (5 pt.)
 def reset():
+    user_answer = input('Continue database reset? All datas will be deleted. (y/n) ')
+    if user_answer == 'y' or user_answer == 'Y' or user_answer == 'yes':
+        initialize()
+    else:
+        print('Reset denied')
+
+def initialize():
     drop_table(TABLE_RATE)
     drop_table(TABLE_BOOK)
     drop_table(TABLE_AUDIENCE)
@@ -31,7 +38,7 @@ def reset():
     create_table(TABLE_BOOK)
     create_table(TABLE_RATE)
 
-    initialize()
+    insert_data_from_csv()
     print('Initialized database')
 
 # drop table for reset
@@ -47,8 +54,8 @@ def create_table(table_name):
         with connection.cursor() as cursor:
             sql= f"""CREATE TABLE IF NOT EXISTS {table_name} (
                     `m_id` INT NOT NULL AUTO_INCREMENT,
-                    `title` VARCHAR(80) NOT NULL,
-                    `director` VARCHAR(80) NOT NULL,
+                    `title` VARCHAR(100) NOT NULL,
+                    `director` VARCHAR(100) NOT NULL,
                     `price` INT UNSIGNED NOT NULL,
                     PRIMARY KEY (`m_id`))"""
             cursor.execute(sql)
@@ -56,7 +63,7 @@ def create_table(table_name):
         with connection.cursor() as cursor:
             sql= f"""CREATE TABLE IF NOT EXISTS {table_name} (
                     `a_id` INT NOT NULL AUTO_INCREMENT,
-                    `name` VARCHAR(80) NOT NULL,
+                    `name` VARCHAR(100) NOT NULL,
                     `gender` ENUM('{MALE}', '{FEMALE}') NOT NULL,
                     `age` INT UNSIGNED NOT NULL,
                     PRIMARY KEY (`a_id`))"""
@@ -95,8 +102,8 @@ def create_table(table_name):
     connection.commit()
 
 # initialize db from raw data.csv
-def initialize():
-    f = open('test.csv','r')
+def insert_data_from_csv():
+    f = open('data.csv','r')
     rdr = csv.reader(f)
     is_first = True
  
@@ -196,7 +203,7 @@ def remove_movie():
         sql= f"""DELETE FROM {TABLE_MOVIE}
                 WHERE m_id=%s"""
         result = cursor.execute(sql, movie_id)
-        connection.commit()
+    connection.commit()
 
     if result == 0: 
         # error message
@@ -381,7 +388,6 @@ def print_movies_for_audience():
 
 # Problem 12 (10 pt.)
 def recommend():
-    # YOUR CODE GOES HERE
     audience_id = input('Audience ID: ')
 
     with connection.cursor() as cursor:
@@ -403,7 +409,6 @@ def recommend():
                 """
         cursor.execute(sql)
         rate_result = cursor.fetchall()
-        # print(rate_result)
 
         # check audience id existence
         sql= f"""SELECT a_id
@@ -412,16 +417,17 @@ def recommend():
         cursor.execute(sql, audience_id)
         aid_result = cursor.fetchall()
 
+        # check error condition
         if len(aid_result) < 1:
-            # error message
             print(f'Audience {audience_id} does not exist')
         elif len(rate_result) < 1:
             print('Rating does not exist')
+        # normal condition -> calculate matrix
         else:
             user_item_matrix = [[0 for j in range(m_count)] for i in range(a_count)]
             number_sum_matrix = [[0,  0] for i in range(a_count)]
             recommend_candidate_mark = [0 for j in range(m_count)]
-            # construct user-item matrix
+            # 1. construct user-item matrix
             for user in range(a_count):
                 for item in range(m_count):
                     for record in rate_result:
@@ -430,28 +436,15 @@ def recommend():
                             number_sum_matrix[user][0] += 1
                             number_sum_matrix[user][1] += record[2]
                     if int(audience_id) - 1 == user and user_item_matrix[user][item] == 0:
-                        recommend_candidate_mark[item] = 1
+                        recommend_candidate_mark[item] = 1            
 
-
-            # print("user_item_matrix")
-            # for user in range(0,a_count):
-            #     for item in range(0,m_count):
-            #         print(str(user_item_matrix[user][item]), end =" ")
-            #     print('\n')              
-
-            # makeup 0 to average rate
+            # 2. change 0 to average rate
             for user in range(a_count):
                 for item in range(m_count):
                     if user_item_matrix[user][item] == 0:
                         user_item_matrix[user][item] = number_sum_matrix[user][1] / number_sum_matrix[user][0]
 
-            # print("user_item_matrix")
-            # for user in range(0,a_count):
-            #     for item in range(0,m_count):
-            #         print(str(user_item_matrix[user][item]), end =" ")
-            #     print('\n')   
-
-            # calculate similarity matrix
+            # 3. calculate similarity matrix
             similarity_matrix = [[0 for j in range(a_count)] for i in range(a_count)]
             for i in range(a_count):
                 for j in range(a_count):
@@ -466,14 +459,9 @@ def recommend():
                         b_card += b * b
                     a_card = math.sqrt(a_card)
                     b_card = math.sqrt(b_card)
-                    similarity_matrix[i][j] = a_dot_b / (a_card * b_card)
-            
-            # print("similarity_matrix")
-            # for i in range(0,a_count):
-            #     for j in range(0,a_count):
-            #         print(str(similarity_matrix[i][j]), end =" ")
-            #     print('\n')      
+                    similarity_matrix[i][j] = a_dot_b / (a_card * b_card)    
 
+            # 4. calculate estimated rate with similarity weight for recommend candidate (non-rated movies)
             for movie in range(len(recommend_candidate_mark)):
                 if recommend_candidate_mark[movie] == 1:
                     numerator = 0
@@ -482,42 +470,31 @@ def recommend():
                         if user + 1 != int(audience_id):
                             numerator += user_item_matrix[user][movie] * similarity_matrix[user][int(audience_id)-1]
                             denominator += similarity_matrix[user][int(audience_id)-1]
-                    # print(numerator)
-                    # print(denominator)
                     recommend_candidate_mark[movie] = numerator / denominator
 
+            # find maximum expected rate from non-rated movies
             recommend_id = 0
             expected_rate = 0
             for i in range(len(recommend_candidate_mark)):
                 if expected_rate < recommend_candidate_mark[i]:
                     recommend_id = i + 1
                     expected_rate = recommend_candidate_mark[i]
-            
-            # print(recommend_candidate_mark)
-            # print(recommend_id, expected_rate)
 
             sql= f"""SELECT m_id, title, director, price, AVG(score)
                 FROM {TABLE_MOVIE} NATURAL LEFT OUTER JOIN ({TABLE_BOOK} NATURAL LEFT OUTER JOIN {TABLE_RATE})
                 where m_id = %s"""
             cursor.execute(sql, recommend_id)
             result = cursor.fetchall()
-            # print(result)
             result = result[0]
             result += (str(round(expected_rate, 4)),)
             result = (result,)
             title_list = ('id', 'title', 'director', 'price', 'avg. rating', 'expected rating')
             print_matrix(title_list, result)
 
-
-
-
-
-
-
 # Total of 60 pt.
 def main():
     # initialize database
-    reset()
+    initialize()
 
     while True:
         print('============================================================')
@@ -571,4 +548,6 @@ def main():
 
 connection = connect_db()
 if __name__ == "__main__":
+    if connection is None:
+        connection = connect_db()
     main()
