@@ -1,5 +1,6 @@
 import pymysql.cursors
 import csv
+import math
 
 STUDENT_ID = 'DB2017_19651'
 TABLE_MOVIE = 'Movie'
@@ -33,12 +34,14 @@ def reset():
     initialize()
     print('Initialized database')
 
+# drop table for reset
 def drop_table(table_name):
     with connection.cursor() as cursor:
         sql = f"DROP TABLE IF EXISTS {table_name}"
         result = cursor.execute(sql)
     connection.commit()
 
+# create table and schema for reset
 def create_table(table_name):
     if table_name == TABLE_MOVIE:
         with connection.cursor() as cursor:
@@ -91,8 +94,9 @@ def create_table(table_name):
             cursor.execute(sql)
     connection.commit()
 
+# initialize db from raw data.csv
 def initialize():
-    f = open('data.csv','r')
+    f = open('test.csv','r')
     rdr = csv.reader(f)
     is_first = True
  
@@ -102,7 +106,6 @@ def initialize():
         else:
             insert_movie_inner(line[0], line[1], line[2])
             insert_audience_inner(line[3], line[4], line[5])
-
     f.close()
 
 def insert_movie_inner(title, director, price):
@@ -121,17 +124,8 @@ def insert_audience_inner(name, gender, age):
         cursor.execute(sql, (name, gender, age))
     connection.commit()
 
-def print_line(data, lengthList):
-    data = list(map(str, data))
-    length = len(data)
-    formatStr = ""
-    for i in range(0, length):
-        formatStr = formatStr + "{" + "{num}:<{len}s".format(num=i, len=lengthList[i]) + "}"
-        if i != length-1:
-            formatStr = formatStr + "    "
-    print(formatStr.format(*data))
-    
-def print_align(column_list, records):
+# print method to print aligned result
+def print_matrix(column_list, records):
     col_num = len(column_list)
     max_len = [0] * col_num
     
@@ -149,9 +143,18 @@ def print_align(column_list, records):
     for i in records:
         print_line(i, max_len)
 
+def print_line(data, length_list):
+    data = list(map(str, data))
+    length = len(data)
+    formatted = ""
+    for i in range(0, length):
+        formatted = formatted + "{" + f"{i}:<{length_list[i]}s" + "}"
+        if i != length - 1:
+            formatted = formatted + "    "
+    print(formatted.format(*data))
+
 # Problem 2 (3 pt.)
 def print_movies():
-    # YOUR CODE GOES HERE
     with connection.cursor() as cursor:
         sql= f"""SELECT m_id, title, director, price, COUNT(b_id), AVG(score)
                 FROM {TABLE_MOVIE} NATURAL LEFT OUTER JOIN ({TABLE_BOOK} NATURAL LEFT OUTER JOIN {TABLE_RATE})
@@ -160,11 +163,10 @@ def print_movies():
         cursor.execute(sql)
         result = cursor.fetchall()
     title_list = ('id', 'title', 'director', 'price', 'book count', 'average rate')
-    print_align(title_list, result)
+    print_matrix(title_list, result)
 
 # Problem 3 (3 pt.)
 def print_audiences():
-    # YOUR CODE GOES HERE
     with connection.cursor() as cursor:
         sql= f"""SELECT a_id, name, gender, age
                 FROM {TABLE_AUDIENCE}
@@ -172,35 +174,32 @@ def print_audiences():
         cursor.execute(sql)
         result = cursor.fetchall()
     title_list = ('id', 'name', 'gender', 'age')
-    print_align(title_list, result)
+    print_matrix(title_list, result)
 
 # Problem 4 (3 pt.)
 def insert_movie():
-    # YOUR CODE GOES HERE
     title = input('Movie title: ')
     director = input('Movie director: ')
     price = input('Movie price: ')
 
     if int(price) >= 0:
         insert_movie_inner(title, director, price)
-        # success message
         print('A movie is successfully inserted')
     else:
         print('Movie price cannot be negative')
 
 # Problem 6 (4 pt.)
 def remove_movie():
-    # YOUR CODE GOES HERE
     movie_id = input('Movie ID: ')
 
     with connection.cursor() as cursor:
         sql= f"""DELETE FROM {TABLE_MOVIE}
                 WHERE m_id=%s"""
         result = cursor.execute(sql, movie_id)
-    connection.commit()
+        connection.commit()
 
     if result == 0: 
-            # error message
+        # error message
         print(f'Movie {movie_id} does not exist')
     else:
         # success message
@@ -221,7 +220,6 @@ def insert_audience():
 
 # Problem 7 (4 pt.)
 def remove_audience():
-    # YOUR CODE GOES HERE
     audience_id = input('Audience ID: ')
 
     with connection.cursor() as cursor:
@@ -231,7 +229,6 @@ def remove_audience():
     connection.commit()
 
     if result == 0:
-        # error message
         print(f'Audience {audience_id} does not exist')
     else:
         # success message
@@ -239,7 +236,6 @@ def remove_audience():
 
 # Problem 8 (5 pt.)
 def book_movie():
-    # YOUR CODE GOES HERE
     movie_id = input('Movie ID: ')
     audience_id = input('Audience ID: ')
 
@@ -264,7 +260,6 @@ def book_movie():
                 WHERE m_id=%s AND a_id=%s"""
         cursor.execute(sql, (movie_id, audience_id))
         duplicate_result = cursor.fetchall()
-
 
         if len(mid_result) < 1:
             print(f'Movie {movie_id} does not exist')
@@ -357,7 +352,7 @@ def print_audiences_for_movie():
             cursor.execute(sql, movie_id)
             result = cursor.fetchall()
             title_list = ('id', 'name', 'gender', 'age', 'rate')
-            print_align(title_list, result)
+            print_matrix(title_list, result)
 
 # Problem 11 (5 pt.)
 def print_movies_for_audience():
@@ -382,21 +377,141 @@ def print_movies_for_audience():
             cursor.execute(sql, audience_id)
             result = cursor.fetchall()
             title_list = ('id', 'title', 'director', 'price', 'rate')
-            print_align(title_list, result)
+            print_matrix(title_list, result)
 
 # Problem 12 (10 pt.)
 def recommend():
     # YOUR CODE GOES HERE
-    movie_id = input('Movie ID: ')
     audience_id = input('Audience ID: ')
 
+    with connection.cursor() as cursor:
+        # get movie record count
+        sql= f"""SELECT count(m_id)
+                FROM {TABLE_MOVIE}"""
+        cursor.execute(sql)
+        m_count = cursor.fetchall()[0][0]
 
-    # error message
-    print(f'Movie {movie_id} does not exist')
-    print(f'Audience {audience_id} does not exist')
-    print('Rating does not exist')
-    # YOUR CODE GOES HERE
-    pass
+        # get audience record count
+        sql= f"""SELECT count(a_id)
+                FROM {TABLE_AUDIENCE}"""
+        cursor.execute(sql)
+        a_count = cursor.fetchall()[0][0]
+
+        # get rate records
+        sql= f"""SELECT a_id, m_id, score
+                FROM {TABLE_MOVIE} NATURAL JOIN ({TABLE_BOOK} NATURAL LEFT OUTER JOIN {TABLE_RATE})
+                """
+        cursor.execute(sql)
+        rate_result = cursor.fetchall()
+        # print(rate_result)
+
+        # check audience id existence
+        sql= f"""SELECT a_id
+                FROM {TABLE_AUDIENCE}
+                WHERE a_id=%s"""
+        cursor.execute(sql, audience_id)
+        aid_result = cursor.fetchall()
+
+        if len(aid_result) < 1:
+            # error message
+            print(f'Audience {audience_id} does not exist')
+        elif len(rate_result) < 1:
+            print('Rating does not exist')
+        else:
+            user_item_matrix = [[0 for j in range(m_count)] for i in range(a_count)]
+            number_sum_matrix = [[0,  0] for i in range(a_count)]
+            recommend_candidate_mark = [0 for j in range(m_count)]
+            # construct user-item matrix
+            for user in range(a_count):
+                for item in range(m_count):
+                    for record in rate_result:
+                        if record[0] == (user + 1) and record[1] == (item + 1):
+                            user_item_matrix[user][item] = record[2]
+                            number_sum_matrix[user][0] += 1
+                            number_sum_matrix[user][1] += record[2]
+                    if int(audience_id) - 1 == user and user_item_matrix[user][item] == 0:
+                        recommend_candidate_mark[item] = 1
+
+
+            # print("user_item_matrix")
+            # for user in range(0,a_count):
+            #     for item in range(0,m_count):
+            #         print(str(user_item_matrix[user][item]), end =" ")
+            #     print('\n')              
+
+            # makeup 0 to average rate
+            for user in range(a_count):
+                for item in range(m_count):
+                    if user_item_matrix[user][item] == 0:
+                        user_item_matrix[user][item] = number_sum_matrix[user][1] / number_sum_matrix[user][0]
+
+            # print("user_item_matrix")
+            # for user in range(0,a_count):
+            #     for item in range(0,m_count):
+            #         print(str(user_item_matrix[user][item]), end =" ")
+            #     print('\n')   
+
+            # calculate similarity matrix
+            similarity_matrix = [[0 for j in range(a_count)] for i in range(a_count)]
+            for i in range(a_count):
+                for j in range(a_count):
+                    a_dot_b = 0
+                    a_card = 0
+                    b_card = 0
+                    for k in range(m_count):
+                        a = user_item_matrix[i][k]
+                        b = user_item_matrix[j][k]
+                        a_dot_b += a * b
+                        a_card += a * a
+                        b_card += b * b
+                    a_card = math.sqrt(a_card)
+                    b_card = math.sqrt(b_card)
+                    similarity_matrix[i][j] = a_dot_b / (a_card * b_card)
+            
+            # print("similarity_matrix")
+            # for i in range(0,a_count):
+            #     for j in range(0,a_count):
+            #         print(str(similarity_matrix[i][j]), end =" ")
+            #     print('\n')      
+
+            for movie in range(len(recommend_candidate_mark)):
+                if recommend_candidate_mark[movie] == 1:
+                    numerator = 0
+                    denominator = 0
+                    for user in range(a_count):
+                        if user + 1 != int(audience_id):
+                            numerator += user_item_matrix[user][movie] * similarity_matrix[user][int(audience_id)-1]
+                            denominator += similarity_matrix[user][int(audience_id)-1]
+                    # print(numerator)
+                    # print(denominator)
+                    recommend_candidate_mark[movie] = numerator / denominator
+
+            recommend_id = 0
+            expected_rate = 0
+            for i in range(len(recommend_candidate_mark)):
+                if expected_rate < recommend_candidate_mark[i]:
+                    recommend_id = i + 1
+                    expected_rate = recommend_candidate_mark[i]
+            
+            # print(recommend_candidate_mark)
+            # print(recommend_id, expected_rate)
+
+            sql= f"""SELECT m_id, title, director, price, AVG(score)
+                FROM {TABLE_MOVIE} NATURAL LEFT OUTER JOIN ({TABLE_BOOK} NATURAL LEFT OUTER JOIN {TABLE_RATE})
+                where m_id = %s"""
+            cursor.execute(sql, recommend_id)
+            result = cursor.fetchall()
+            # print(result)
+            result = result[0]
+            result += (str(round(expected_rate, 4)),)
+            result = (result,)
+            title_list = ('id', 'title', 'director', 'price', 'avg. rating', 'expected rating')
+            print_matrix(title_list, result)
+
+
+
+
+
 
 
 # Total of 60 pt.
@@ -453,7 +568,6 @@ def main():
             print('Invalid action')
 
     connection.close()
-
 
 connection = connect_db()
 if __name__ == "__main__":
