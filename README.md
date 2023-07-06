@@ -1,21 +1,20 @@
 # 2022f-database
-2022-f database 과제 아카이빙 레포
+2022-f database course projects
 
 ## Proj1-1: Implementing SQL Parser
-이번 프로젝트의 목표는 간단한 SQL 파서(parser)를 구현하는 것이다.
-SQL 파서란, SQL 구문의 구조를 이해하고 분석하는 도구를 뜻한다.
-프로젝트 1-1에서 구현한 SQL 파서는 추후 프로젝트 1-2 및 1-3에서도 계속해서 사용될 예정이다.
+The goal of this project is to implement a simple SQL parser.
+A SQL parser is a tool that understands and analyzes the structure of SQL syntax.
+The SQL parser implemented in Project 1-1 will continue to be used in future projects 1-2 and 1-3.
 
 ## Proj1-2: Implementing DDL
-이번 프로젝트의 목표는 프로젝트 1-1에서 구현한 SQL 파서 프로그램에 기능을 추가하여 스키마를 저 장하고 스키마에 접근할 수 있도록 하는 것이다.
-구현한 프로그램은 4개의 DDL 구문(create table, drop table, desc, show tables)에 대해 처 리할 수 있어야 한다.
-테이블 스키마는 파일에 저장되어 프로그램이 종료되어도 사라지지 않아야 한다. 저장에는 Berkeley DB를 이용한다.
-프로젝트 1-2의 코드를 이용하여 프로젝트 1-3에서 실제로 레코드를 삽입하고 삭제하는 기능을 구현할 예정이므로, 이를 고려하면서 구현하도록 한다.
+The goal of this project is to add functionality to the SQL parser program implemented in Project 1-1 to store and access schemas.
+The program you implement should be able to handle four DDL statements: create table, drop table, desc, and show tables.
+The table schema should be stored in a file so that it doesn't disappear when the program exits. Use Berkeley DB for storage.
+You will be using the code from Project 1-2 to implement the actual insertion and deletion of records in Project 1-3, so keep that in mind as you build.
 
 ## Proj1-3: Implementing DML
-이번 프로젝트의 목표는 프로젝트 1-1 및 프로젝트 1-2에서 구현한 프로그램에 기능을 추가하여 간단한 DML을 처리할 수 있도록 하는 것이다.
-구현한 프로그램은 4개의 DML 구문(insert, delete, select, update)을 처리할 수 있어야 한다. 테이블 데이터는 파일에 저장되어 프로그램이 종료되어도 사라지지 않아야 한다. 데이터 저장에는 Berkeley
-DB를 이용한다.
+The goal of this project is to add functionality to the programs implemented in Project 1-1 and Project 1-2 so that they can handle simple DML.
+The implemented program should be able to handle the four DML statements (insert, delete, select, update). The table data should be stored in a file so that it does not disappear when the program exits. Berkeley DB is used to store the data.
 
 ## Proj2: Implementing a Simple Database Application
-이번 프로젝트의 목표는 데이터베이스를 이용하는 간단한 어플리케이션을 설계하고 구현하는 것이다. Python 및 MySQL을 이용하여 영화 예매를 시뮬레이션 하는 간단한 어플리케이션을 만들어 본다. 이번 프 로젝트를 통해 학생들은 어플리케이션과 데이터베이스를 연동하는 방법을 배우게 된다.
+The goal of this project is to design and implement a simple application that utilizes a database. You will use Python and MySQL to create a simple application that simulates movie ticketing. Through this project, students will learn how to integrate an application with a database.
